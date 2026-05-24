@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import ExportPdfButton from "../components/ExportPdfButton";
@@ -107,28 +107,18 @@ export default function DashboardClient({
   user,
   myPortfolios,
 }: DashboardClientProps) {
-  const [portfolios, setPortfolios] =
-    useState<PortfolioDetail[]>(myPortfolios);
-
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
+  const activeTab = getValidDashboardTab(currentTab);
 
-  useEffect(() => {
-    setPortfolios(myPortfolios);
-  }, [myPortfolios]);
-
-  const [toastMessage, setToastMessage] = useState("");
-  const [activeTab, setActiveTab] = useState<DashboardTab>(
-    getValidDashboardTab(currentTab),
+  const [portfolios, setPortfolios] = useState<PortfolioDetail[]>(() =>
+    mergePortfolios(myPortfolios),
   );
 
-  useEffect(() => {
-    setActiveTab(getValidDashboardTab(currentTab));
-  }, [currentTab]);
+  const [toastMessage, setToastMessage] = useState("");
 
   function handleChangeTab(tab: DashboardTab) {
-    setActiveTab(tab);
     router.replace(`/dashboard?tab=${tab}`, { scroll: false });
   }
 

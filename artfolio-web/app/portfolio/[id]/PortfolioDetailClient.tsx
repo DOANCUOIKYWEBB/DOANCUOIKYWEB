@@ -92,7 +92,7 @@ export default function PortfolioDetailClient({
     return ownerId === currentUserId;
   }, [portfolio, currentUserId]);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isLiked, setIsLiked] = useState(false);
+  const [optimisticLiked, setOptimisticLiked] = useState<boolean | null>(null);
   const [likesCount, setLikesCount] = useState(0);
   const [commentText, setCommentText] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -102,6 +102,15 @@ export default function PortfolioDetailClient({
     if (!portfolio) return "";
     return categoryLabels[portfolio.category] || portfolio.category;
   }, [portfolio]);
+  const serverIsLiked = useMemo(() => {
+    if (!portfolio || !currentUserId) return false;
+
+    return (
+      portfolio.likes?.some((id) => String(id) === String(currentUserId)) || false
+    );
+  }, [portfolio, currentUserId]);
+
+const isLiked = optimisticLiked ?? serverIsLiked;
 
   useEffect(() => {
     const socket: Socket = io(getSocketUrl(), {
@@ -188,88 +197,53 @@ export default function PortfolioDetailClient({
       isMounted = false;
     };
   }, [portfolioId]);
-    useEffect(() => {
-    const viewKey = `artfolio-view-${portfolioId}`;
-    const lastViewedAt = Number(sessionStorage.getItem(viewKey) || 0);
-    const now = Date.now();
-
-    // Chặn gọi trùng trong vài giây do React/Next dev mode hoặc reload nhanh
-    if (now - lastViewedAt < 3000) return;
-
-    sessionStorage.setItem(viewKey, String(now));
-
-    async function increaseView() {
-      try {
-        const response = await fetch(getApiUrl(`portfolios/${portfolioId}/view`), {
-          method: "POST",
-          cache: "no-store",
-        });
-
-        const json = await response.json().catch(() => null);
-
-        if (response.ok && json?.data?.views !== undefined) {
-          setPortfolio((current) =>
-            current
-              ? {
-                  ...current,
-                  views: json.data.views,
-                }
-              : current,
-          );
-        }
-      } catch (error) {
-        console.error("Increase view error:", error);
-      }
-    }
-
-    increaseView();
-  }, [portfolioId]);
-    useEffect(() => {
-    const viewKey = `artfolio-view-${portfolioId}`;
-    const lastViewedAt = Number(sessionStorage.getItem(viewKey) || 0);
-    const now = Date.now();
-
-    if (now - lastViewedAt < 3000) return;
-
-    sessionStorage.setItem(viewKey, String(now));
-
-    async function increaseView() {
-      try {
-        const response = await fetch(getApiUrl(`portfolios/${portfolioId}/view`), {
-          method: "POST",
-          cache: "no-store",
-        });
-
-        const json = await response.json().catch(() => null);
-
-        if (response.ok && json?.data?.views !== undefined) {
-          setPortfolio((current) =>
-            current
-              ? {
-                  ...current,
-                  views: json.data.views,
-                }
-              : current,
-          );
-        }
-      } catch (error) {
-        console.error("Increase view error:", error);
-      }
-    }
-
-    increaseView();
-  }, [portfolioId]);
 
   useEffect(() => {
-    if (!portfolio || !currentUserId) {
-      setIsLiked(false);
-      return;
-    }
+    if (!portfolioId) return;
 
-    setIsLiked(
-      portfolio.likes?.some((id) => String(id) === String(currentUserId)) || false,
-    );
-  }, [portfolio, currentUserId]);
+    const viewKey = `artfolio-view-lock-${portfolioId}`;
+    const lastViewedAt = Number(sessionStorage.getItem(viewKey) || 0);
+    const now = Date.now();
+
+    // Chặn gọi trùng trong thời gian ngắn.
+    // Sau 5 giây mở lại bài viết vẫn có thể tính lượt xem mới.
+    if (now - lastViewedAt < 5000) return;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const latestViewedAt = Number(sessionStorage.getItem(viewKey) || 0);
+        const currentTime = Date.now();
+
+        if (currentTime - latestViewedAt < 5000) return;
+
+        sessionStorage.setItem(viewKey, String(currentTime));
+
+        const response = await fetch(getApiUrl(`portfolios/${portfolioId}/view`), {
+          method: "POST",
+          cache: "no-store",
+        });
+
+        const json = await response.json().catch(() => null);
+
+        if (response.ok && json?.data?.views !== undefined) {
+          setPortfolio((current) =>
+            current
+              ? {
+                  ...current,
+                  views: Number(json.data.views),
+                }
+              : current,
+          );
+        }
+      } catch (error) {
+        console.error("Increase view error:", error);
+      }
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [portfolioId]);
 
   async function handleToggleLike() {
     setNotice("");
@@ -280,7 +254,7 @@ export default function PortfolioDetailClient({
     }
 
     const nextLiked = !isLiked;
-    setIsLiked(nextLiked);
+    setOptimisticLiked(nextLiked);
     setLikesCount((current) => Math.max(0, current + (nextLiked ? 1 : -1)));
 
     try {
@@ -298,11 +272,11 @@ export default function PortfolioDetailClient({
       }
 
       if (json?.data) {
-        setIsLiked(Boolean(json.data.isLiked));
+        setOptimisticLiked(Boolean(json.data.isLiked));
         setLikesCount(Number(json.data.likesCount || 0));
       }
     } catch (error) {
-      setIsLiked(!nextLiked);
+      setOptimisticLiked(!nextLiked);
       setLikesCount((current) => Math.max(0, current + (nextLiked ? -1 : 1)));
       setNotice(
         error instanceof Error
