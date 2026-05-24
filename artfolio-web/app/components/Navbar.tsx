@@ -8,7 +8,9 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useThemeStore } from "../store/useThemeStore";
 import { useSocket } from "../hooks/useSocket";
-import NotificationDropdown from "./NotificationDropdown";
+import NotificationDropdown, {
+  type SocketNotificationPayload,
+} from "./NotificationDropdown";
 
 const publicLinks = [
   { href: "/", label: "Trang chu" },
@@ -41,7 +43,8 @@ export default function Navbar() {
     router.refresh();
   };
 
-  const [latestSocketNotification, setLatestSocketNotification] = useState<any>(null);
+  const [latestSocketNotification, setLatestSocketNotification] =
+    useState<SocketNotificationPayload | null>(null);
 
   const { socket } = useSocket({
     userId: currentUser?.id || currentUser?._id,
@@ -51,7 +54,7 @@ export default function Navbar() {
   useEffect(() => {
     if (!socket || !signedIn) return;
 
-    function handleNotification(payload: any) {
+    function handleNotification(payload: SocketNotificationPayload) {
       setLatestSocketNotification(payload);
     }
 
