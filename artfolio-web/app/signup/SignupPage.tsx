@@ -118,6 +118,23 @@ export default function SignupPage({ nextPath }: SignupPageProps) {
               </span>
             </label>
 
+            <label className="field">
+              <span className="label">Nhap lai mat khau</span>
+              <input
+                id="signup-confirm-password"
+                className={`input${errors.confirmPassword ? " input-error" : ""}`}
+                type="password"
+                autoComplete="new-password"
+                placeholder="Nhap lai mat khau"
+                {...register("confirmPassword")}
+              />
+              {errors.confirmPassword && (
+                <span className="error-text">
+                  {errors.confirmPassword.message}
+                </span>
+              )}
+            </label>
+
             <button
               id="signup-submit"
               type="submit"

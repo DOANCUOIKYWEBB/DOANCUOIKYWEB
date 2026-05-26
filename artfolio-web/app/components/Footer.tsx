@@ -1,12 +1,12 @@
 import Link from "next/link";
 
 const footerLinks = [
-  { href: "/", label: "Trang chu" },
-  { href: "/portfolios", label: "Kham pha" },
-  { href: "/about", label: "Gioi thieu" },
-  { href: "/contact", label: "Lien he" },
+  { href: "/", label: "Trang chủ" },
+  { href: "/portfolios", label: "Khám phá" },
+  { href: "/about", label: "Giới thiệu" },
+  { href: "/contact", label: "Liên hệ" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/login", label: "Dang nhap" },
+  { href: "/login", label: "Đăng nhập" },
 ];
 
 export default function Footer() {
@@ -23,7 +23,7 @@ export default function Footer() {
             <span>Artfolio</span>
           </Link>
           <p className="max-w-xs text-sm leading-relaxed text-muted">
-            Nen tang portfolio sang tao danh cho designer, artist va photographer.
+            Nền tảng portfolio sáng tạo dành cho designer, artist và photographer.
           </p>
           <p className="text-xs text-muted">
             INT1334 - CreativePortfolio - {year}
@@ -31,7 +31,7 @@ export default function Footer() {
         </div>
 
         <nav className="grid h-fit gap-2">
-          <p className="text-xs font-bold uppercase text-muted">Dieu huong</p>
+          <p className="text-xs font-bold uppercase text-muted">Điều hướng</p>
           {footerLinks.map((link) => (
             <Link
               key={link.href}
@@ -46,7 +46,7 @@ export default function Footer() {
 
       <div className="border-t border-border">
         <div className="app-container flex flex-col gap-2 py-4 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
-          <span>(c) {year} Artfolio. Du an hoc tap.</span>
+          <span>(c) {year} Artfolio. Dự án học tập.</span>
           <span>Next.js - Tailwind CSS - TypeScript</span>
         </div>
       </div>

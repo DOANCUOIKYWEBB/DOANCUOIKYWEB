@@ -85,18 +85,18 @@ const toggleLike = async (req, res, next) => {
         recipient: portfolio.user._id,
         sender: req.user._id,
         type: 'like',
-        portfolio: portfolio._id,
+        portfolio: portfolio._id
       })
 
       // Phát socket realtime
       if (io) {
         emitNotification(
-            io,
-            portfolio.user._id.toString(),
-            'like',
-            req.user.name || 'Ai đó',
-            portfolio.title,
-            portfolio._id.toString()
+          io,
+          portfolio.user._id.toString(),
+          'like',
+          req.user.name || 'Ai đó',
+          portfolio.title,
+          portfolio._id.toString()
         )
       }
     }

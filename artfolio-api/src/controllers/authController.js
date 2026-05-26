@@ -61,12 +61,12 @@ export const verifyOTP = async (req, res) => {
       message: 'OTP hợp lệ'
     })
   } catch (error) {
-  console.error(error)
+    console.error(error)
 
-  return res.status(500).json({
-    message: error.message
-  })
-}}
+    return res.status(500).json({
+      message: error.message
+    })
+  }}
 
 export const resetPassword = async (req, res) => {
   try {
@@ -89,8 +89,8 @@ export const resetPassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10)
 
     await User.findOneAndUpdate(
-        { email },
-        { password: hashedPassword }
+      { email },
+      { password: hashedPassword }
     )
 
     await OTP.deleteMany({ email })

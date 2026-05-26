@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title>Artfolio icon</title>
+  <rect width="512" height="512" rx="112" fill="#4f46e5"/>
+  <circle cx="150" cy="152" r="34" fill="#f8fafc" opacity=".95"/>
+  <path fill="#f8fafc" d="M93 398 218 121h76l125 277h-73l-24-58H190l-24 58H93Zm121-116h84l-42-101-42 101Z"/>
+  <path fill="#22c55e" d="M345 114c35 8 61 39 61 76 0 43-35 78-78 78-31 0-58-18-70-44h54c6 0 11-5 11-11v-47c0-6 5-11 11-11h47c6 0 11-5 11-11v-30h-47Z"/>
+</svg>

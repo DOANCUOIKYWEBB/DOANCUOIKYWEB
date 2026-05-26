@@ -16,7 +16,7 @@ const getMyNotifications = async (req, res, next) => {
       status: 'success',
       unreadCount,
       results: notifications.length,
-      data: notifications,
+      data: notifications
     })
   } catch (error) {
     next(error)
@@ -33,7 +33,7 @@ const markAllAsRead = async (req, res, next) => {
 
     res.status(200).json({
       status: 'success',
-      message: 'Đã đánh dấu tất cả thông báo là đã đọc.',
+      message: 'Đã đánh dấu tất cả thông báo là đã đọc.'
     })
   } catch (error) {
     next(error)
@@ -55,7 +55,7 @@ const markAsRead = async (req, res, next) => {
 
     res.status(200).json({
       status: 'success',
-      data: notification,
+      data: notification
     })
   } catch (error) {
     next(error)
@@ -67,7 +67,7 @@ const deleteNotification = async (req, res, next) => {
   try {
     const notification = await Notification.findOneAndDelete({
       _id: req.params.id,
-      recipient: req.user._id,
+      recipient: req.user._id
     })
 
     if (!notification) {
@@ -76,7 +76,7 @@ const deleteNotification = async (req, res, next) => {
 
     res.status(200).json({
       status: 'success',
-      message: 'Đã xóa thông báo.',
+      message: 'Đã xóa thông báo.'
     })
   } catch (error) {
     next(error)
@@ -90,7 +90,7 @@ const deleteAllNotifications = async (req, res, next) => {
 
     res.status(200).json({
       status: 'success',
-      message: 'Đã xóa toàn bộ thông báo.',
+      message: 'Đã xóa toàn bộ thông báo.'
     })
   } catch (error) {
     next(error)
@@ -102,5 +102,5 @@ export const notificationController = {
   markAllAsRead,
   markAsRead,
   deleteNotification,
-  deleteAllNotifications,
+  deleteAllNotifications
 }

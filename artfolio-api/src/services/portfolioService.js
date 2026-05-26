@@ -79,17 +79,17 @@ const createPortfolio = async (reqBody, files, user, io = null) => {
           recipient: followerId,
           sender: user._id,
           type: 'new_post',
-          portfolio: portfolio._id,
+          portfolio: portfolio._id
         }))
         await Notification.insertMany(notifDocs)
 
         // Phát socket realtime
         emitNewPostToFollowers(
-            io,
-            author.followers.map((id) => id.toString()),
-            author.name,
-            portfolio._id.toString(),
-            portfolio.title
+          io,
+          author.followers.map((id) => id.toString()),
+          author.name,
+          portfolio._id.toString(),
+          portfolio.title
         )
       }
     } catch (err) {
@@ -133,10 +133,10 @@ const getPortfolioList = async (queryParams) => {
 
   const [portfolios, totalCount] = await Promise.all([
     Portfolio.find(query)
-        .populate('user', 'name avatar')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
+      .populate('user', 'name avatar')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit)),
     Portfolio.countDocuments(query)
   ])
 

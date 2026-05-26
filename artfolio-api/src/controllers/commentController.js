@@ -14,8 +14,8 @@ const getCommentsByPortfolio = async (req, res, next) => {
     }
 
     const comments = await Comment.find({ portfolio: portfolioId })
-        .populate('user', 'name avatar')
-        .sort({ createdAt: -1 })
+      .populate('user', 'name avatar')
+      .sort({ createdAt: -1 })
 
     res.status(200).json({
       status: 'success',
