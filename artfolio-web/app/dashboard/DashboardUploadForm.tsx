@@ -5,7 +5,7 @@ import { ImagePlus, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import type { AuthUser, PortfolioDetail } from "../types/api";
+import type { PortfolioDetail } from "../types/api";
 import { api } from "../utils/api";
 
 const uploadSchema = z.object({
@@ -20,7 +20,6 @@ const uploadSchema = z.object({
 type UploadFormValues = z.infer<typeof uploadSchema>;
 
 type DashboardUploadFormProps = {
-  user: AuthUser;
   onCreated: (portfolio: PortfolioDetail) => void;
 };
 
@@ -29,7 +28,6 @@ function formatFileSize(size: number) {
 }
 
 export default function DashboardUploadForm({
-  user,
   onCreated,
 }: DashboardUploadFormProps) {
   const [imageFile, setImageFile] = useState<File | null>(null);

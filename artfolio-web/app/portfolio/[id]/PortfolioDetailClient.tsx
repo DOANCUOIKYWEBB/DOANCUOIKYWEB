@@ -114,7 +114,7 @@ export default function PortfolioDetailClient({
     );
   }, [portfolio, currentUserId]);
 
-const isLiked = optimisticLiked ?? serverIsLiked;
+  const isLiked = optimisticLiked ?? serverIsLiked;
 
   useEffect(() => {
     const socket: Socket = io(getSocketUrl(), {
@@ -228,9 +228,9 @@ const isLiked = optimisticLiked ?? serverIsLiked;
           setPortfolio((current) =>
             current
               ? {
-                  ...current,
-                  views: Number(json.data.views),
-                }
+                ...current,
+                views: Number(json.data.views),
+              }
               : current,
           );
         }
@@ -482,11 +482,10 @@ const isLiked = optimisticLiked ?? serverIsLiked;
             <button
               type="button"
               onClick={handleToggleLike}
-              className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm font-bold transition ${
-                isLiked
+              className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm font-bold transition ${isLiked
                   ? "border-danger/25 bg-danger/10 text-danger"
                   : "border-border bg-surface-soft text-muted hover:text-foreground"
-              }`}
+                }`}
             >
               <Heart
                 className="h-4 w-4"

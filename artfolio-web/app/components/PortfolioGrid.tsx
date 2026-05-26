@@ -1,11 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, Heart } from "lucide-react";
+import PortfolioModalShell from "./PortfolioModalShell";
+import PortfolioDetailClient from "../portfolio/[id]/PortfolioDetailClient";
 import type { PortfolioCategory, PortfolioSummary } from "../types/api";
+import CustomSelect from "./CustomSelect";
+import ColorPickerFilter from "./ColorPickerFilter";
 
 type PortfolioGridProps = {
   portfolios: PortfolioSummary[];
@@ -45,9 +49,11 @@ function PortfolioSkeleton() {
 function PortfolioCard({
   portfolio,
   index,
+  onOpen,
 }: {
   portfolio: PortfolioSummary;
   index: number;
+  onOpen: (id: string) => void;
 }) {
   const heights = [
     "aspect-[4/3]",
@@ -69,9 +75,9 @@ function PortfolioCard({
       transition={{ duration: 0.4, delay: index * 0.05 }}
       className="masonry-item"
     >
-      <Link
-        href={`/portfolio/${getPortfolioId(portfolio)}`}
-        scroll={false}
+      <button
+        type="button"
+        onClick={() => onOpen(getPortfolioId(portfolio))}
         className="group block h-full w-full text-left"
         aria-label={`Xem tác phẩm ${portfolio.title}`}
       >
@@ -140,7 +146,7 @@ function PortfolioCard({
             </div>
           </div>
         </article>
-      </Link>
+      </button>
     </motion.div>
   );
 }
@@ -150,17 +156,36 @@ export default function PortfolioGrid({
   isLoading = false,
   errorMessage,
 }: PortfolioGridProps) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<PortfolioCategory | "all">("all");
   const [tag, setTag] = useState("all");
+  const [selectedColor, setSelectedColor] = useState<string | "all">("all");
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
 
-  const tags = useMemo(
-    () =>
-      Array.from(
-        new Set(portfolios.flatMap((portfolio) => portfolio.tags || [])),
-      ).sort(),
-    [portfolios],
-  );
+  useEffect(() => {
+    const handlePopState = () => setSelectedPortfolioId(null);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const handleOpenPortfolio = (portfolioId: string) => {
+    const detailHref = `/portfolio/${portfolioId}`;
+    setSelectedPortfolioId(portfolioId);
+    router.push(detailHref, { scroll: false });
+  };
+
+  const handleClosePortfolio = () => {
+    setSelectedPortfolioId(null);
+    router.back();
+  };
+
+  const tags = useMemo(() => Array.from(new Set(portfolios.flatMap((portfolio) => portfolio.tags || []))).sort(), [portfolios]);
+  
+  const colors = useMemo(() => {
+    const allColors = portfolios.flatMap((p) => p.colors || []);
+    return Array.from(new Set(allColors.map(c => c.toLowerCase()))).sort();
+  }, [portfolios]);
 
   const filtered = useMemo(() => {
     const q = normalize(query);
@@ -170,21 +195,18 @@ export default function PortfolioGrid({
         !q ||
         normalize(portfolio.title).includes(q) ||
         normalize(portfolio.user?.name || "").includes(q) ||
-        Boolean(
-          portfolio.tags &&
-            portfolio.tags.some((item) => normalize(item).includes(q)),
-        );
+        Boolean(portfolio.tags && portfolio.tags.some((item) => normalize(item).includes(q)));
 
-      const matchesCategory =
-        category === "all" || portfolio.category === category;
+      const matchesCategory = category === "all" || portfolio.category === category;
+      const matchesTag = tag === "all" || Boolean(portfolio.tags && portfolio.tags.includes(tag));
+      const matchesColor = selectedColor === "all" || Boolean(portfolio.colors && portfolio.colors.map(c => c.toLowerCase()).includes(selectedColor));
 
-      const matchesTag =
-        tag === "all" ||
-        Boolean(portfolio.tags && portfolio.tags.includes(tag));
-
-      return matchesQuery && matchesCategory && matchesTag;
+      return matchesQuery && matchesCategory && matchesTag && matchesColor;
     });
-  }, [category, portfolios, query, tag]);
+  }, [category, portfolios, query, tag, selectedColor]);
+
+  const categoryOptions = Object.entries(categoryLabels).map(([value, label]) => ({ value, label }));
+  const tagOptions = [{ value: "all", label: "Tất cả Tags" }, ...tags.map(t => ({ value: t, label: `#${t}` }))];
 
   return (
     <>
@@ -199,33 +221,26 @@ export default function PortfolioGrid({
             />
           </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar">
-            <select
-              className="rounded-xl border border-border/50 bg-surface/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+          <div className="flex flex-wrap gap-3">
+            <CustomSelect
               value={category}
-              onChange={(event) =>
-                setCategory(event.target.value as PortfolioCategory | "all")
-              }
-            >
-              {Object.entries(categoryLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setCategory(val as PortfolioCategory | "all")}
+              options={categoryOptions}
+              minWidth="140px"
+            />
 
-            <select
-              className="rounded-xl border border-border/50 bg-surface/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+            <CustomSelect
               value={tag}
-              onChange={(event) => setTag(event.target.value)}
-            >
-              <option value="all">Tất cả Tags</option>
-              {tags.map((item) => (
-                <option key={item} value={item}>
-                  #{item}
-                </option>
-              ))}
-            </select>
+              onChange={setTag}
+              options={tagOptions}
+              minWidth="160px"
+            />
+            
+            <ColorPickerFilter
+              colors={colors}
+              selectedColor={selectedColor}
+              onChange={setSelectedColor}
+            />
           </div>
         </div>
 
@@ -270,6 +285,7 @@ export default function PortfolioGrid({
                   key={portfolio._id}
                   portfolio={portfolio}
                   index={index}
+                  onOpen={handleOpenPortfolio}
                 />
               ))}
             </AnimatePresence>
@@ -277,6 +293,15 @@ export default function PortfolioGrid({
         )}
       </div>
 
+      {selectedPortfolioId && (
+        <PortfolioModalShell onClose={handleClosePortfolio}>
+          <PortfolioDetailClient
+            key={selectedPortfolioId}
+            portfolioId={selectedPortfolioId}
+            mode="modal"
+          />
+        </PortfolioModalShell>
+      )}
     </>
   );
 }

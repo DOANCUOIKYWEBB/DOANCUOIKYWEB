@@ -88,6 +88,14 @@ export default function Navbar() {
     router.refresh();
   };
 
+  const handleCreateNavigation = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+  ) => {
+    event.preventDefault();
+    setIsOpen(false);
+    window.location.assign(createHref);
+  };
+
   const [latestSocketNotification, setLatestSocketNotification] =
     useState<SocketNotificationPayload | null>(null);
 
@@ -139,7 +147,11 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
-          <a href={createHref} className={linkClass("/portfolio/create")}>
+          <a
+            href={createHref}
+            className={linkClass("/portfolio/create")}
+            onClick={handleCreateNavigation}
+          >
             Đăng tác phẩm
           </a>
           {signedIn && (
@@ -217,6 +229,7 @@ export default function Navbar() {
           <a
             href={createHref}
             className="btn btn-primary h-10 w-10 px-0 md:hidden"
+            onClick={handleCreateNavigation}
             aria-label="Đăng tác phẩm"
           >
             <Plus className="h-4 w-4" aria-hidden />
@@ -250,7 +263,7 @@ export default function Navbar() {
             <a
               href={createHref}
               className={linkClass("/portfolio/create")}
-              onClick={() => setIsOpen(false)}
+              onClick={handleCreateNavigation}
             >
               Đăng tác phẩm
             </a>

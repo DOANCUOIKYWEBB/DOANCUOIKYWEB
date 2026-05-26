@@ -71,12 +71,12 @@ export async function getPortfolios(
 
     console.log("Fetching portfolios from:", url);
 
-    const res = await fetch(
-      url,
-      options.revalidate
-        ? { next: { revalidate: options.revalidate } }
-        : { cache: "no-store" },
-    );
+    const fetchOptions =
+      options.revalidate === undefined
+        ? { cache: "no-store" as const }
+        : { next: { revalidate: options.revalidate } };
+
+    const res = await fetch(url, fetchOptions);
 
     console.log("Portfolio API status:", res.status);
 

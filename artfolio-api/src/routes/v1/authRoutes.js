@@ -27,10 +27,10 @@ const loginLimiter = rateLimit({
 router.post('/signup', signupValidation, authController.signup)
 
 router.post(
-    '/login',
-    loginLimiter,
-    loginValidation,
-    authController.login
+  '/login',
+  loginLimiter,
+  loginValidation,
+  authController.login
 )
 
 router.post('/logout', authController.logout)

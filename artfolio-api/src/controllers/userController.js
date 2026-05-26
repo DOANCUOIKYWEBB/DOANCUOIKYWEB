@@ -13,8 +13,8 @@ const getUserProfile = async (req, res, next) => {
     }
 
     const portfolios = await Portfolio.find({ user: req.params.id })
-        .select('title images likesCount views colors category createdAt')
-        .sort({ createdAt: -1 })
+      .select('title images likesCount views colors category createdAt')
+      .sort({ createdAt: -1 })
 
     res.status(200).json({
       status: 'success',
@@ -51,9 +51,9 @@ const updateUserProfile = async (req, res, next) => {
     }
 
     const updatedUser = await User.findByIdAndUpdate(
-        req.params.id,
-        { $set: updateData },
-        { new: true, runValidators: true }
+      req.params.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
     ).select('-password -__v')
 
     if (!updatedUser) {
@@ -85,7 +85,7 @@ const toggleFollow = async (req, res, next) => {
     }
 
     const isAlreadyFollowing = targetUser.followers.some(
-        id => id.toString() === currentUserId
+      id => id.toString() === currentUserId
     )
 
     let isFollowing

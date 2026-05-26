@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,6 +17,51 @@ const createSchema = z.object({
 });
 
 type CreateFormValues = z.infer<typeof createSchema>;
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+function hslToHex(hue: number, saturation: number, lightness: number) {
+  const normalizedSaturation = saturation / 100;
+  const normalizedLightness = lightness / 100;
+  const chroma =
+    (1 - Math.abs(2 * normalizedLightness - 1)) * normalizedSaturation;
+  const hueSegment = hue / 60;
+  const secondComponent = chroma * (1 - Math.abs((hueSegment % 2) - 1));
+  const match = normalizedLightness - chroma / 2;
+  const [red, green, blue] =
+    hueSegment < 1
+      ? [chroma, secondComponent, 0]
+      : hueSegment < 2
+        ? [secondComponent, chroma, 0]
+        : hueSegment < 3
+          ? [0, chroma, secondComponent]
+          : hueSegment < 4
+            ? [0, secondComponent, chroma]
+            : hueSegment < 5
+              ? [secondComponent, 0, chroma]
+              : [chroma, 0, secondComponent];
+
+  return `#${[red, green, blue]
+    .map((value) =>
+      Math.round((value + match) * 255)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+const COLOR_PALETTE = [
+  ...[0, 15, 30, 45, 60, 85, 110, 140, 165, 190, 215, 240, 265, 290, 315, 340]
+    .flatMap((hue) => [82, 68, 54, 40, 28].map((lightness) => hslToHex(hue, 86, lightness))),
+  "#ffffff",
+  "#f1f5f9",
+  "#cbd5e1",
+  "#94a3b8",
+  "#64748b",
+  "#334155",
+  "#111827",
+  "#000000",
+];
 
 export default function CreatePortfolioPage() {
   const router = useRouter();
@@ -25,8 +70,10 @@ export default function CreatePortfolioPage() {
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [colors, setColors] = useState<string[]>(["#0f172a", "#3b82f6", "#f472b6"]);
+  const [activeColorIndex, setActiveColorIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
+  const imagePreviewsRef = useRef<string[]>([]);
 
   // AI State
   const [aiAnalysis, setAiAnalysis] = useState("");
@@ -44,6 +91,16 @@ export default function CreatePortfolioPage() {
     }
   }, [isHydrated, isAuthenticated, router]);
 
+  useEffect(() => {
+    imagePreviewsRef.current = imagePreviews;
+  }, [imagePreviews]);
+
+  useEffect(() => {
+    return () => {
+      imagePreviewsRef.current.forEach((preview) => URL.revokeObjectURL(preview));
+    };
+  }, []);
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -53,18 +110,26 @@ export default function CreatePortfolioPage() {
 
     files.forEach((file) => {
       if (!file.type.startsWith("image/")) {
-        invalidFiles.push(file.name);
-      } else {
-        validFiles.push(file);
+        invalidFiles.push(`${file.name} khong phai file anh`);
+        return;
       }
+
+      if (file.size > MAX_IMAGE_SIZE) {
+        invalidFiles.push(`${file.name} vuot qua 10MB`);
+        return;
+      }
+
+      validFiles.push(file);
     });
 
-    if (invalidFiles.length > 0) {
+    if (validFiles.length === 0) {
       setApiError(`File không hợp lệ: ${invalidFiles.join(", ")}. Chỉ hỗ trợ ảnh.`);
+      e.target.value = "";
       return;
     }
 
     if (imageFiles.length + validFiles.length > 5) {
+      e.target.value = "";
       setApiError("Bạn chỉ được tải lên tối đa 5 ảnh.");
       return;
     }
@@ -74,7 +139,12 @@ export default function CreatePortfolioPage() {
 
     setImageFiles(newFiles);
     setImagePreviews(newPreviews);
-    setApiError("");
+    setApiError(
+      invalidFiles.length > 0
+        ? `Da them file hop le. Bo qua: ${invalidFiles.join(", ")}.`
+        : "",
+    );
+    e.target.value = "";
   };
 
   const handleRemoveImage = (index: number) => {
@@ -89,12 +159,26 @@ export default function CreatePortfolioPage() {
 
   const handleColorChange = (index: number, newColor: string) => {
     const newColors = [...colors];
-    newColors[index] = newColor;
+    const normalizedColor = newColor.startsWith("#")
+      ? newColor
+      : `#${newColor}`;
+    newColors[index] = normalizedColor.slice(0, 7);
     setColors(newColors);
   };
 
+  const applyPresetColor = (color: string) => {
+    handleColorChange(activeColorIndex, color);
+  };
+
+  const validColors = colors.filter((color) => HEX_COLOR_PATTERN.test(color));
+
   const analyzePaletteWithAI = async () => {
     if (!accessToken) return;
+    if (validColors.length !== colors.length) {
+      setAiError("Vui long nhap dung ma mau HEX, vi du #66D7EE.");
+      return;
+    }
+
     setIsAnalyzing(true);
     setAiError("");
     try {
@@ -104,7 +188,7 @@ export default function CreatePortfolioPage() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${accessToken}`
         },
-        body: JSON.stringify({ colors })
+        body: JSON.stringify({ colors: validColors })
       });
 
       const data = await res.json();
@@ -184,6 +268,19 @@ export default function CreatePortfolioPage() {
     }
   };
 
+  if (!isHydrated || !isAuthenticated) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="surface rounded-xl p-6 text-center">
+          <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-primary" />
+          <p className="text-sm font-semibold text-muted">
+            Dang kiem tra phien dang nhap...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background py-10">
       <div className="app-container max-w-4xl">
@@ -257,16 +354,56 @@ export default function CreatePortfolioPage() {
                   AI Phân Tích
                 </button>
               </div>
-              <div className="flex gap-3">
-                {colors.map((c, i) => (
-                  <input
-                    key={i}
-                    type="color"
-                    value={c}
-                    onChange={(e) => handleColorChange(i, e.target.value)}
-                    className="h-12 w-full cursor-pointer rounded-lg border border-border p-1 bg-surface transition-transform hover:scale-105"
-                  />
-                ))}
+              <div className="grid gap-3">
+                {colors.map((c, i) => {
+                  const isValid = HEX_COLOR_PATTERN.test(c);
+
+                  return (
+                    <label
+                      key={i}
+                      className={`flex items-center gap-3 rounded-lg border bg-surface p-2 transition ${
+                        activeColorIndex === i
+                          ? "border-primary ring-2 ring-primary/20"
+                          : "border-border"
+                      }`}
+                      onFocus={() => setActiveColorIndex(i)}
+                    >
+                      <span
+                        className="h-9 w-9 shrink-0 rounded-md border border-border"
+                        style={{ backgroundColor: isValid ? c : "#ffffff" }}
+                      />
+                      <input
+                        className={`min-w-0 flex-1 bg-transparent text-sm font-semibold uppercase outline-none ${
+                          isValid ? "text-foreground" : "text-danger"
+                        }`}
+                        value={c}
+                        maxLength={7}
+                        onChange={(e) => handleColorChange(i, e.target.value)}
+                        onFocus={() => setActiveColorIndex(i)}
+                        aria-label={`Color ${i + 1}`}
+                      />
+                    </label>
+                  );
+                })}
+
+                <div className="grid grid-cols-8 gap-1 rounded-lg border border-border bg-surface p-2 sm:grid-cols-11">
+                  {COLOR_PALETTE.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      className={`aspect-square rounded-sm border transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                        colors[activeColorIndex]?.toLowerCase() ===
+                        preset.toLowerCase()
+                          ? "border-foreground ring-2 ring-primary/40"
+                          : "border-border/50"
+                      }`}
+                      style={{ backgroundColor: preset }}
+                      onClick={() => applyPresetColor(preset)}
+                      aria-label={`Use color ${preset}`}
+                      title={preset}
+                    />
+                  ))}
+                </div>
               </div>
               {aiError && (
                 <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm font-semibold text-danger">
@@ -337,7 +474,7 @@ export default function CreatePortfolioPage() {
             <div className="mt-auto pt-6 border-t border-border">
               <button
                 type="submit"
-                disabled={isSubmitting || imageFiles.length === 0}
+                disabled={isSubmitting}
                 className="btn btn-primary w-full h-12 text-base"
               >
                 {isSubmitting ? (

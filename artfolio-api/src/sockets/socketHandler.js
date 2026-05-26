@@ -43,26 +43,26 @@ export const emitNotification = (io, targetUserId, type, senderName, portfolioTi
   const messages = {
     like:    `${senderName} đã thích tác phẩm "${portfolioTitle}"`,
     comment: `${senderName} đã bình luận vào "${portfolioTitle}"`,
-    follow:  `${senderName} đã bắt đầu theo dõi bạn`,
+    follow:  `${senderName} đã bắt đầu theo dõi bạn`
   }
 
   const titles = {
     like:    'Lượt thích mới',
     comment: 'Bình luận mới',
-    follow:  'Người theo dõi mới',
+    follow:  'Người theo dõi mới'
   }
 
   const links = {
     like:    portfolioId ? `/portfolio/${portfolioId}` : undefined,
     comment: portfolioId ? `/portfolio/${portfolioId}` : undefined,
-    follow:  undefined,
+    follow:  undefined
   }
 
   io.to(`user_${targetUserId}`).emit('send_notification', {
     type,
     title:   titles[type] || 'Thông báo mới',
     message: messages[type] || `${senderName} đã tương tác với bạn`,
-    link:    links[type],
+    link:    links[type]
   })
 }
 
@@ -78,7 +78,7 @@ export const emitNewPostToFollowers = (io, followerIds, authorName, portfolioId,
     io.to(`user_${followerId}`).emit('new_post_for_follower', {
       authorName,
       portfolioId,
-      portfolioTitle,
+      portfolioTitle
     })
   }
 }
@@ -87,6 +87,6 @@ export const emitNewPostToFollowers = (io, followerIds, authorName, portfolioId,
 export const emitNewComment = (io, portfolioId, comment) => {
   io.to(`portfolio_${portfolioId}`).emit('new_comment', {
     comment,
-    portfolioId,
+    portfolioId
   })
 }
