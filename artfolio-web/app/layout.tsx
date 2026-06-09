@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Footer from "./components/Footer";
 import Navbar from "./components/Navbar";
 import ThemeInitializer from "./components/ThemeInitializer";
+import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -74,11 +75,7 @@ export default function RootLayout({
             __html: `try{var t=localStorage.getItem("artfolio-theme");var d=window.matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",t?t==="dark":d)}catch(e){}`,
           }}
         />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker'in navigator && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'){navigator.serviceWorker.register('/sw.js').catch(()=>{});}`,
-          }}
-        />
+        <ServiceWorkerRegister />
         <ThemeInitializer />
         <Navbar />
         <main className="flex-1">{children}</main>
