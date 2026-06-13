@@ -142,9 +142,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
       <nav className="app-container flex h-16 items-center justify-between gap-4">
         <Link href="/" className="flex min-w-0 items-center gap-2 font-bold">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary text-sm text-white">
-            A
-          </span>
+          <img src="/logo.png" alt="Artfolio Logo" className="h-8 w-8 shrink-0 rounded-md object-contain" />
           <span className="truncate">Artfolio</span>
         </Link>
 
