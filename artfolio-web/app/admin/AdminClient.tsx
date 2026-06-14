@@ -82,11 +82,33 @@ function SparklineChart({ data, color }: { data: number[]; color: string }) {
 }
 
 function BieuDoThongKe({ tongLuotXem }: { tongLuotXem: number }) {
-  const nhanThang = ["23/10", "27/10", "31/10", "Tháng 11", "08/11", "12/11", "16/11"];
   const giaTri = tongLuotXem || 1563;
-  const data = [30, 38, 42, 50, 45, 62, 55, 70, 65, 75, 68, 80, 74, 88].map(
-    (v) => Math.round((v / 88) * giaTri * 0.12)
-  );
+
+  // Lấy 30 ngày gần nhất tính theo thời gian thực (ngày hiện tại là điểm cuối)
+  const now = new Date();
+  const ngayList = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() - (29 - i));
+    return d;
+  });
+
+  // Dữ liệu mô phỏng theo xu hướng tăng dần + dao động, chia theo 30 ngày
+  const data = ngayList.map((_, i) => {
+    const xuHuong = 30 + i * 1.8;
+    const daoDong = Math.sin(i / 2.3) * 8;
+    const gia = Math.max(1, xuHuong + daoDong);
+    return Math.round((gia / 90) * giaTri * 0.12);
+  });
+
+  // Chỉ hiển thị 7 nhãn ngày để tránh chen chúc trên trục X
+  const chiSoNhan = [0, 5, 10, 15, 20, 24, 29];
+  const nhanNgay = chiSoNhan.map((i) => {
+    const d = ngayList[i];
+    const ngay = d.getDate().toString().padStart(2, "0");
+    const thang = (d.getMonth() + 1).toString().padStart(2, "0");
+    return `${ngay}/${thang}`;
+  });
+
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min || 1;
@@ -124,10 +146,10 @@ function BieuDoThongKe({ tongLuotXem }: { tongLuotXem: number }) {
           </g>
         );
       })}
-      {nhanThang.map((nhan, i) => {
-        const x = pad.left + (i / (nhanThang.length - 1)) * iW;
+      {chiSoNhan.map((dataIdx, i) => {
+        const x = pad.left + (dataIdx / (data.length - 1)) * iW;
         return (
-          <text key={i} x={x} y={H - 6} textAnchor="middle" fontSize="10" fill="currentColor" fillOpacity="0.45">{nhan}</text>
+          <text key={i} x={x} y={H - 6} textAnchor="middle" fontSize="10" fill="currentColor" fillOpacity="0.45">{nhanNgay[i]}</text>
         );
       })}
       <path d={areaD} fill="url(#chartGrad)" />
@@ -139,7 +161,7 @@ function BieuDoThongKe({ tongLuotXem }: { tongLuotXem: number }) {
 
 export default function AdminClient() {
   const router = useRouter();
-  const { user, isAuthenticated, isHydrated, accessToken } = useAuthStore();
+  const { user, isAuthenticated, isHydrated, accessToken, refreshAccessToken, clearAuth } = useAuthStore();
 
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [users, setUsers] = useState<UserData[]>([]);
@@ -164,10 +186,29 @@ export default function AdminClient() {
   const fetchStats = useCallback(async () => {
     if (!accessToken) return;
     try {
-      const res = await fetch(getApiUrl("admin/stats"), {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      let token = accessToken;
+      let res = await fetch(getApiUrl("admin/stats"), {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error();
+
+      if (res.status === 401 || res.status === 410) {
+        const newToken = await refreshAccessToken();
+        if (!newToken) throw new Error();
+        token = newToken;
+        res = await fetch(getApiUrl("admin/stats"), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 410) {
+          clearAuth();
+          toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+          router.replace("/login");
+          return;
+        }
+        throw new Error();
+      }
       const json = await res.json();
       setStats(json.data);
     } catch {
@@ -175,7 +216,7 @@ export default function AdminClient() {
     } finally {
       setIsLoadingStats(false);
     }
-  }, [accessToken]);
+  }, [accessToken, refreshAccessToken, clearAuth, router]);
 
   const fetchUsers = useCallback(
     async (pageNum = 1, search = "") => {
@@ -183,10 +224,29 @@ export default function AdminClient() {
       setIsLoadingUsers(true);
       try {
         const q = new URLSearchParams({ page: pageNum.toString(), limit: "10", ...(search && { search }) });
-        const res = await fetch(getApiUrl(`admin/users?${q}`), {
-          headers: { Authorization: `Bearer ${accessToken}` },
+        let token = accessToken;
+        let res = await fetch(getApiUrl(`admin/users?${q}`), {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) throw new Error();
+
+        if (res.status === 401 || res.status === 410) {
+          const newToken = await refreshAccessToken();
+          if (!newToken) throw new Error();
+          token = newToken;
+          res = await fetch(getApiUrl(`admin/users?${q}`), {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 410) {
+            clearAuth();
+            toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+            router.replace("/login");
+            return;
+          }
+          throw new Error();
+        }
         const json = await res.json();
         setUsers(json.data);
         setTotalPages(json.totalPages || 1);
@@ -196,7 +256,7 @@ export default function AdminClient() {
         setIsLoadingUsers(false);
       }
     },
-    [accessToken]
+    [accessToken, refreshAccessToken, clearAuth, router]
   );
 
 
@@ -407,7 +467,7 @@ export default function AdminClient() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-bold text-foreground">Phân Tích Lượt Xem</h2>
-                <p className="text-xs text-muted mt-0.5">Thống kê lượt xem theo thời gian</p>
+                <p className="text-xs text-muted mt-0.5">Thống kê lượt xem 30 ngày gần đây</p>
               </div>
               <Link href="/portfolios" className="text-xs bg-blue-400/10 text-blue-400 font-semibold px-2.5 py-1 rounded-full hover:bg-blue-400/20 transition-colors">Xem tất cả</Link>
             </div>
