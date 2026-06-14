@@ -1,11 +1,14 @@
 import { authService } from '~/services/authService.js'
 import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 
 import User from '../models/userModel.js'
 import { OTP } from '../models/otpModel.js'
+import TokenBlacklist from '../models/tokenBlacklistModel.js'
 
 import { createOTP } from '../services/otpService.js'
 import { sendOTPEmail } from '../services/emailService.js'
+import { env } from '../config/environment.js'
 
 export const forgotPassword = async (req, res) => {
   try {
@@ -166,6 +169,22 @@ const googleLogin = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
   try {
+    // Blacklist access token hiện tại để vô hiệu hóa ngay lập tức
+    const authHeader = req.headers.authorization
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const accessToken = authHeader.split(' ')[1]
+      try {
+        const decoded = jwt.verify(accessToken, env.JWT_SECRET)
+        // Lưu vào blacklist, MongoDB tự xóa khi token hết hạn nhờ TTL index
+        await TokenBlacklist.create({
+          token: accessToken,
+          expiredAt: new Date(decoded.exp * 1000)
+        })
+      } catch {
+        // Token đã hết hạn hoặc không hợp lệ → không cần blacklist
+      }
+    }
+
     const isProduction = process.env.NODE_ENV === 'production'
     res.clearCookie('refreshToken', {
       httpOnly: true,
