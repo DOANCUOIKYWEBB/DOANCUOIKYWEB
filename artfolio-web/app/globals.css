@@ -119,6 +119,24 @@ img {
     margin-bottom: 1.25rem;
   }
 
+  .feed-container {
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    width: 100vw;
+    height: 100dvh;
+  }
+
+  .feed-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .feed-slide {
+    scroll-snap-stop: always;
+  }
+
   .btn {
     display: inline-flex;
     min-height: 40px;

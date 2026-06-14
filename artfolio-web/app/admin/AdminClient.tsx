@@ -17,6 +17,11 @@ import {
   Loader2,
   Trash2,
   TrendingUp,
+  Megaphone,
+  Plus,
+  Pencil,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../store/useAuthStore";
@@ -28,6 +33,15 @@ type SystemStats = {
   totalPortfolios: number;
   totalViews: number;
   totalLikes: number;
+};
+
+
+type Banner = {
+  _id: string;
+  message: string;
+  type: "info" | "warning" | "success" | "danger";
+  active: boolean;
+  createdAt: string;
 };
 
 type UserData = {
@@ -68,33 +82,11 @@ function SparklineChart({ data, color }: { data: number[]; color: string }) {
 }
 
 function BieuDoThongKe({ tongLuotXem }: { tongLuotXem: number }) {
+  const nhanThang = ["23/10", "27/10", "31/10", "Tháng 11", "08/11", "12/11", "16/11"];
   const giaTri = tongLuotXem || 1563;
-
-  // Lấy 30 ngày gần nhất tính theo thời gian thực (ngày hiện tại là điểm cuối)
-  const now = new Date();
-  const ngayList = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date(now);
-    d.setDate(now.getDate() - (29 - i));
-    return d;
-  });
-
-  // Dữ liệu mô phỏng theo xu hướng tăng dần + dao động, chia theo 30 ngày
-  const data = ngayList.map((_, i) => {
-    const xuHuong = 30 + i * 1.8;
-    const daoDong = Math.sin(i / 2.3) * 8;
-    const gia = Math.max(1, xuHuong + daoDong);
-    return Math.round((gia / 90) * giaTri * 0.12);
-  });
-
-  // Chỉ hiển thị 7 nhãn ngày để tránh chen chúc trên trục X
-  const chiSoNhan = [0, 5, 10, 15, 20, 24, 29];
-  const nhanNgay = chiSoNhan.map((i) => {
-    const d = ngayList[i];
-    const ngay = d.getDate().toString().padStart(2, "0");
-    const thang = (d.getMonth() + 1).toString().padStart(2, "0");
-    return `${ngay}/${thang}`;
-  });
-
+  const data = [30, 38, 42, 50, 45, 62, 55, 70, 65, 75, 68, 80, 74, 88].map(
+    (v) => Math.round((v / 88) * giaTri * 0.12)
+  );
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min || 1;
@@ -118,8 +110,8 @@ function BieuDoThongKe({ tongLuotXem }: { tongLuotXem: number }) {
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "auto" }}>
       <defs>
         <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#4f9cf9" stopOpacity="0.45" />
-          <stop offset="100%" stopColor="#4f9cf9" stopOpacity="0.03" />
+          <stop offset="0%" stopColor="#5ba4f5" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="#f472b6" stopOpacity="0.03" />
         </linearGradient>
       </defs>
       {Array.from({ length: yTicks }).map((_, i) => {
@@ -132,27 +124,31 @@ function BieuDoThongKe({ tongLuotXem }: { tongLuotXem: number }) {
           </g>
         );
       })}
-      {chiSoNhan.map((dataIdx, i) => {
-        const x = pad.left + (dataIdx / (data.length - 1)) * iW;
+      {nhanThang.map((nhan, i) => {
+        const x = pad.left + (i / (nhanThang.length - 1)) * iW;
         return (
-          <text key={i} x={x} y={H - 6} textAnchor="middle" fontSize="10" fill="currentColor" fillOpacity="0.45">{nhanNgay[i]}</text>
+          <text key={i} x={x} y={H - 6} textAnchor="middle" fontSize="10" fill="currentColor" fillOpacity="0.45">{nhan}</text>
         );
       })}
       <path d={areaD} fill="url(#chartGrad)" />
-      <path d={lineD} fill="none" stroke="#4f9cf9" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="5" fill="#4f9cf9" stroke="white" strokeWidth="2" />
+      <path d={lineD} fill="none" stroke="#5ba4f5" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="5" fill="#5ba4f5" stroke="white" strokeWidth="2" />
     </svg>
   );
 }
 
 export default function AdminClient() {
   const router = useRouter();
-  const { user, isAuthenticated, isHydrated, accessToken, refreshAccessToken, clearAuth } = useAuthStore();
+  const { user, isAuthenticated, isHydrated, accessToken } = useAuthStore();
 
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [isLoadingBanners, setIsLoadingBanners] = useState(false);
+  const [bannerForm, setBannerForm] = useState({ message: "", type: "info" as Banner["type"] });
+  const [isSubmittingBanner, setIsSubmittingBanner] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -168,43 +164,18 @@ export default function AdminClient() {
   const fetchStats = useCallback(async () => {
     if (!accessToken) return;
     try {
-      let token = accessToken;
-      let res = await fetch(getApiUrl("admin/stats"), {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(getApiUrl("admin/stats"), {
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
-
-      if (res.status === 401 || res.status === 410) {
-        const newToken = await refreshAccessToken();
-        if (!newToken) throw new Error();
-        token = newToken;
-        res = await fetch(getApiUrl("admin/stats"), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
-
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 410) {
-          clearAuth();
-          toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-          router.replace("/login");
-          return;
-        }
-        const errJson = await res.json().catch(() => null);
-        throw new Error(errJson?.message || `HTTP ${res.status}`);
-      }
+      if (!res.ok) throw new Error();
       const json = await res.json();
       setStats(json.data);
-    } catch (err) {
-      console.error("Lỗi tải thống kê admin:", err);
-      toast.error(
-        err instanceof Error && err.message
-          ? `Không thể tải thống kê: ${err.message}`
-          : "Không thể tải thống kê"
-      );
+    } catch {
+      toast.error("Không thể tải thống kê");
     } finally {
       setIsLoadingStats(false);
     }
-  }, [accessToken, refreshAccessToken, clearAuth, router]);
+  }, [accessToken]);
 
   const fetchUsers = useCallback(
     async (pageNum = 1, search = "") => {
@@ -212,47 +183,92 @@ export default function AdminClient() {
       setIsLoadingUsers(true);
       try {
         const q = new URLSearchParams({ page: pageNum.toString(), limit: "10", ...(search && { search }) });
-
-        let token = accessToken;
-        let res = await fetch(getApiUrl(`admin/users?${q}`), {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await fetch(getApiUrl(`admin/users?${q}`), {
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
-
-        if (res.status === 401 || res.status === 410) {
-          const newToken = await refreshAccessToken();
-          if (!newToken) throw new Error();
-          token = newToken;
-          res = await fetch(getApiUrl(`admin/users?${q}`), {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-        }
-
-        if (!res.ok) {
-          if (res.status === 401 || res.status === 410) {
-            clearAuth();
-            toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-            router.replace("/login");
-            return;
-          }
-          const errJson = await res.json().catch(() => null);
-          throw new Error(errJson?.message || `HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error();
         const json = await res.json();
         setUsers(json.data);
         setTotalPages(json.totalPages || 1);
-      } catch (err) {
-        console.error("Lỗi tải danh sách người dùng:", err);
-        toast.error(
-          err instanceof Error && err.message
-            ? `Không thể tải danh sách người dùng: ${err.message}`
-            : "Không thể tải danh sách người dùng"
-        );
+      } catch {
+        toast.error("Không thể tải danh sách người dùng");
       } finally {
         setIsLoadingUsers(false);
       }
     },
-    [accessToken, refreshAccessToken, clearAuth, router]
+    [accessToken]
   );
+
+
+  const fetchBanners = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoadingBanners(true);
+    try {
+      const res = await fetch(getApiUrl("admin/banners"), {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      setBanners(Array.isArray(json.data) ? json.data : []);
+    } catch {
+      toast.error("Không thể tải banner");
+    } finally {
+      setIsLoadingBanners(false);
+    }
+  }, [accessToken]);
+
+  const handleCreateBanner = async () => {
+    if (!accessToken || !bannerForm.message.trim()) return;
+    setIsSubmittingBanner(true);
+    try {
+      const res = await fetch(getApiUrl("admin/banners"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(bannerForm),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message);
+      toast.success("Đã tạo banner thông báo!");
+      setBannerForm({ message: "", type: "info" });
+      fetchBanners();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lỗi khi tạo banner");
+    } finally {
+      setIsSubmittingBanner(false);
+    }
+  };
+
+  const handleToggleBanner = async (id: string, active: boolean) => {
+    if (!accessToken) return;
+    try {
+      const res = await fetch(getApiUrl(`admin/banners/${id}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ active: !active }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(active ? "Đã tắt banner" : "Đã bật banner");
+      setBanners((prev) => prev.map((b) => (b._id === id ? { ...b, active: !active } : b)));
+    } catch {
+      toast.error("Lỗi khi cập nhật banner");
+    }
+  };
+
+  const handleDeleteBanner = async (id: string) => {
+    if (!accessToken) return;
+    if (!window.confirm("Xóa banner này?")) return;
+    try {
+      const res = await fetch(getApiUrl(`admin/banners/${id}`), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Đã xóa banner");
+      setBanners((prev) => prev.filter((b) => b._id !== id));
+    } catch {
+      toast.error("Lỗi khi xóa banner");
+    }
+  };
 
   useEffect(() => {
     if (isAuthenticated && user?.role === "admin" && accessToken) {
@@ -260,8 +276,17 @@ export default function AdminClient() {
       fetchStats();
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchUsers(1, "");
+
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchBanners();
+
+      // Auto-refresh stats every 30 seconds for real-time feel
+      const interval = setInterval(() => {
+        fetchStats();
+      }, 30000);
+      return () => clearInterval(interval);
     }
-  }, [isAuthenticated, user, accessToken, fetchStats, fetchUsers]);
+  }, [isAuthenticated, user, accessToken, fetchStats, fetchUsers, fetchBanners]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -326,27 +351,27 @@ export default function AdminClient() {
       moTa: "Tổng lượt xem tác phẩm",
       giaTri: stats?.totalViews ?? 0,
       sparkData: [30, 45, 35, 60, 48, 70, 55, 80, 65, 90, 72, 95],
-      mauSac: "#4f9cf9",
+      mauSac: "#5ba4f5",
       icon: Eye,
-      iconBg: "bg-blue-500",
+      iconBg: "bg-blue-400",
     },
     {
       tieuDe: "Tác phẩm",
       moTa: "Tổng số tác phẩm đã đăng",
       giaTri: stats?.totalPortfolios ?? 0,
       sparkData: [20, 35, 28, 50, 42, 58, 48, 65, 55, 72, 60, 80],
-      mauSac: "#10b981",
+      mauSac: "#f472b6",
       icon: TrendingUp,
-      iconBg: "bg-emerald-500",
+      iconBg: "bg-pink-400",
     },
     {
       tieuDe: "Lượt thích",
       moTa: "Tổng lượt thích nhận được",
       giaTri: stats?.totalLikes ?? 0,
       sparkData: [10, 25, 18, 40, 32, 55, 45, 68, 52, 75, 60, 85],
-      mauSac: "#f59e0b",
+      mauSac: "#a78bfa",
       icon: Heart,
-      iconBg: "bg-amber-500",
+      iconBg: "bg-violet-400",
     },
   ];
 
@@ -357,7 +382,10 @@ export default function AdminClient() {
         <div className="app-container flex h-16 items-center justify-between">
           <div>
             <h1 className="text-xl font-extrabold text-foreground tracking-tight">Bảng Quản Trị</h1>
-            <p className="text-xs text-muted">Quản lý tổng quan hệ thống Artfolio</p>
+            <p className="text-xs text-muted flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Cập nhật thời gian thực · tự động mỗi 30s
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -379,9 +407,9 @@ export default function AdminClient() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-bold text-foreground">Phân Tích Lượt Xem</h2>
-                <p className="text-xs text-muted mt-0.5">Thống kê lượt xem 30 ngày gần đây</p>
+                <p className="text-xs text-muted mt-0.5">Thống kê lượt xem theo thời gian</p>
               </div>
-              <Link href="/portfolios" className="text-xs bg-blue-500/10 text-blue-500 font-semibold px-2.5 py-1 rounded-full hover:bg-blue-500/20 transition-colors">Xem tất cả</Link>
+              <Link href="/portfolios" className="text-xs bg-blue-400/10 text-blue-400 font-semibold px-2.5 py-1 rounded-full hover:bg-blue-400/20 transition-colors">Xem tất cả</Link>
             </div>
             <BieuDoThongKe tongLuotXem={stats?.totalViews ?? 0} />
           </div>
@@ -418,10 +446,10 @@ export default function AdminClient() {
         {/* Hàng thống kê tóm tắt */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { nhan: "Tổng người dùng", giaTri: stats?.totalUsers ?? 0, mau: "text-blue-500", icon: Users },
-            { nhan: "Tác phẩm đã duyệt", giaTri: Math.round((stats?.totalPortfolios ?? 0) * 0.7), mau: "text-emerald-500", icon: ImageIcon },
-            { nhan: "Tác phẩm thành công", giaTri: Math.round((stats?.totalPortfolios ?? 0) * 0.55), mau: "text-purple-500", icon: TrendingUp },
-            { nhan: "Đang thực hiện", giaTri: Math.round((stats?.totalPortfolios ?? 0) * 0.3), mau: "text-amber-500", icon: Eye },
+            { nhan: "Tổng người dùng", giaTri: stats?.totalUsers ?? 0, mau: "text-blue-400", icon: Users },
+            { nhan: "Tác phẩm đã duyệt", giaTri: Math.round((stats?.totalPortfolios ?? 0) * 0.7), mau: "text-pink-400", icon: ImageIcon },
+            { nhan: "Tác phẩm thành công", giaTri: Math.round((stats?.totalPortfolios ?? 0) * 0.55), mau: "text-violet-400", icon: TrendingUp },
+            { nhan: "Đang thực hiện", giaTri: Math.round((stats?.totalPortfolios ?? 0) * 0.3), mau: "text-sky-400", icon: Eye },
           ].map((item, i) => {
             const Icon = item.icon;
             return (
@@ -482,7 +510,7 @@ export default function AdminClient() {
                           {u.avatar && u.avatar !== "default-avatar.png" ? (
                             <img src={u.avatar} alt={u.name} className="h-9 w-9 rounded-full object-cover border border-black/8" referrerPolicy="no-referrer" />
                           ) : (
-                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center font-bold text-white text-sm">
+                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-400 to-pink-400 flex items-center justify-center font-bold text-white text-sm">
                               {u.name.charAt(0).toUpperCase()}
                             </div>
                           )}
@@ -578,6 +606,119 @@ export default function AdminClient() {
             </div>
           )}
         </section>
+
+        {/* Banner thông báo hệ thống */}
+        <section className="bg-white dark:bg-[#1e2637] rounded-2xl border border-black/5 dark:border-white/5 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between">
+            <h2 className="font-bold text-foreground flex items-center gap-2 text-base">
+              <Megaphone className="h-4 w-4 text-pink-400" />
+              Banner thông báo hệ thống
+            </h2>
+            <span className="text-xs text-muted">{banners.filter(b => b.active).length} đang hiển thị</span>
+          </div>
+
+          {/* Form tạo banner mới */}
+          <div className="p-5 border-b border-black/5 dark:border-white/5 bg-black/1 dark:bg-white/1">
+            <p className="text-xs font-semibold text-muted uppercase mb-3">Tạo banner mới</p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                placeholder="Nội dung thông báo cho người dùng..."
+                className="flex-1 h-10 px-3 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#151c2c] text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/30"
+                value={bannerForm.message}
+                onChange={(e) => setBannerForm((f) => ({ ...f, message: e.target.value }))}
+                onKeyDown={(e) => { if (e.key === "Enter") handleCreateBanner(); }}
+              />
+              <select
+                className="h-10 px-3 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#151c2c] text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                value={bannerForm.type}
+                onChange={(e) => setBannerForm((f) => ({ ...f, type: e.target.value as Banner["type"] }))}
+              >
+                <option value="info">🔵 Thông tin</option>
+                <option value="success">🟢 Thành công</option>
+                <option value="warning">🟡 Cảnh báo</option>
+                <option value="danger">🔴 Nguy hiểm</option>
+              </select>
+              <button
+                type="button"
+                onClick={handleCreateBanner}
+                disabled={isSubmittingBanner || !bannerForm.message.trim()}
+                className="flex items-center gap-2 px-4 h-10 rounded-xl bg-gradient-to-r from-blue-400 to-pink-400 text-white text-sm font-bold disabled:opacity-50 transition-all hover:shadow-lg"
+              >
+                {isSubmittingBanner ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Đăng
+              </button>
+            </div>
+
+            {/* Preview */}
+            {bannerForm.message && (
+              <div className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm border ${
+                bannerForm.type === "info" ? "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-200" :
+                bannerForm.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-700 dark:text-emerald-200" :
+                bannerForm.type === "warning" ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-200" :
+                "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-900/20 dark:border-rose-700 dark:text-rose-200"
+              }`}>
+                <Megaphone className="h-3.5 w-3.5 shrink-0" />
+                <span className="font-medium">Preview:</span>
+                <span>{bannerForm.message}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Danh sách banner */}
+          <div className="divide-y divide-black/4 dark:divide-white/4">
+            {isLoadingBanners ? (
+              <div className="flex h-32 items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted" />
+              </div>
+            ) : banners.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-muted gap-2">
+                <Megaphone className="h-8 w-8 opacity-30" />
+                <p className="text-sm">Chưa có banner nào</p>
+              </div>
+            ) : (
+              banners.map((banner) => (
+                <div key={banner._id} className="flex items-center gap-3 px-5 py-3.5">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${
+                    banner.type === "info" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" :
+                    banner.type === "success" ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300" :
+                    banner.type === "warning" ? "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300" :
+                    "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300"
+                  }`}>
+                    {banner.type}
+                  </span>
+                  <p className="flex-1 text-sm text-foreground line-clamp-1">{banner.message}</p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleBanner(banner._id, banner.active)}
+                      className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
+                        banner.active
+                          ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300"
+                          : "bg-black/5 text-muted hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
+                      }`}
+                    >
+                      {banner.active ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />}
+                      {banner.active ? "Bật" : "Tắt"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteBanner(banner._id)}
+                      className="h-7 w-7 flex items-center justify-center rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 dark:border-rose-800 dark:hover:bg-rose-900/20 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
       </div>
     </main>
   );

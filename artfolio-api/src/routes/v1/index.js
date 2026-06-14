@@ -7,6 +7,7 @@ import commentRoutes from './commentRoutes.js'
 import userRoutes from './userRoutes.js'
 import notificationRoutes from './notificationRoutes.js'
 import adminRoutes from './adminRoutes.js'
+import bannerRoutes from './bannerRoutes.js'
 
 const Router = express.Router()
 
@@ -17,5 +18,6 @@ Router.use('/comments', commentRoutes)
 Router.use('/users', userRoutes)
 Router.use('/notifications', notificationRoutes)
 Router.use('/admin', adminRoutes)
+Router.use('/banners', bannerRoutes)
 
 export const APIs_V1 = Router

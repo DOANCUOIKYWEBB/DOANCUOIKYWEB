@@ -6,6 +6,7 @@ import ThemeInitializer from "./components/ThemeInitializer";
 import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
 import GoogleProvider from "./components/GoogleProvider";
 import "./globals.css";
+import SystemBanner from "./components/SystemBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -80,6 +81,7 @@ export default function RootLayout({
         <ThemeInitializer />
         <GoogleProvider>
           <Navbar />
+          <SystemBanner />
           <main className="flex-1">{children}</main>
           {modal}
           <Footer />

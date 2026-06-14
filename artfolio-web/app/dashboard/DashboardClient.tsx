@@ -4,13 +4,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, Settings, Moon, Sun, Infinity, LayoutList, Monitor, Check, Clapperboard } from "lucide-react";
 import ExportPdfButton from "../components/ExportPdfButton";
 import ProfileHeader from "./components/ProfileHeader";
 import DashboardStats from "./components/DashboardStats";
 import PortfolioModalShell from "../components/PortfolioModalShell";
 import PortfolioDetailClient from "../portfolio/[id]/PortfolioDetailClient";
 import { useAuthStore } from "../store/useAuthStore";
+import { useThemeStore } from "../store/useThemeStore";
 
 import type {
   AuthUser,
@@ -29,11 +30,12 @@ type DashboardClientProps = {
   myPortfolios: PortfolioDetail[];
 };
 
-type DashboardTab = "profile" | "portfolios" | "export";
+type DashboardTab = "profile" | "portfolios" | "export" | "settings";
 
 function getValidDashboardTab(tab: string | null): DashboardTab {
   if (tab === "portfolios") return "portfolios";
   if (tab === "export") return "export";
+  if (tab === "settings") return "settings";
   return "profile";
 }
 const categoryLabels: Record<string, string> = {
@@ -336,10 +338,28 @@ export default function DashboardClient({
     })),
   };
 
+
+  const { theme, setTheme } = useThemeStore();
+  const [scrollMode, setScrollModeState] = useState<"infinite" | "paginate" | "feed">(() => {
+    if (typeof window === "undefined") return "infinite";
+    return (localStorage.getItem("artfolio-scroll-mode") as "infinite" | "paginate" | "feed") || "infinite";
+  });
+
+  const handleScrollModeChange = (mode: "infinite" | "paginate" | "feed") => {
+    setScrollModeState(mode);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("artfolio-scroll-mode", mode);
+      // Cùng tab
+      window.dispatchEvent(new CustomEvent("artfolio:scroll-mode-changed", { detail: { mode } }));
+      // Khác tab — storage event tự fire khi setItem
+    }
+  };
+
   const tabs = [
     { key: "profile" as const, label: "Hồ sơ" },
     { key: "portfolios" as const, label: `Tác phẩm (${portfolios.length})` },
     { key: "export" as const, label: "Xuất PDF" },
+    { key: "settings" as const, label: "Cài đặt" },
   ];
 
   return (
@@ -735,6 +755,123 @@ export default function DashboardClient({
                 </div>
 
                 <ExportPdfButton profile={pdfProfile} />
+              </div>
+            )}
+
+            {activeTab === "settings" && (
+              <div className="grid gap-5">
+                {/* Giao diện */}
+                <div className="surface rounded-xl p-5 sm:p-7">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-400 to-pink-400 flex items-center justify-center">
+                      <Monitor className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-foreground">Giao diện</h2>
+                      <p className="text-xs text-muted">Chọn chế độ hiển thị phù hợp với bạn</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {([
+                      { value: "light", label: "Chế độ sáng", desc: "Nền trắng, phù hợp ban ngày", Icon: Sun },
+                      { value: "dark", label: "Chế độ tối", desc: "Nền tối, dễ nhìn ban đêm", Icon: Moon },
+                    ] as const).map(({ value, label, desc, Icon }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setTheme(value)}
+                        className={`relative flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all ${
+                          theme === value
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/40 hover:bg-surface-soft"
+                        }`}
+                      >
+                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                          value === "light" ? "bg-amber-100 text-amber-500" : "bg-slate-800 text-slate-200"
+                        }`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-foreground">{label}</p>
+                          <p className="text-xs text-muted mt-0.5">{desc}</p>
+                        </div>
+                        {theme === value && (
+                          <span className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="h-3 w-3 text-white" />
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Chế độ scroll */}
+                <div className="surface rounded-xl p-5 sm:p-7">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-400 to-pink-400 flex items-center justify-center">
+                      <Settings className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-foreground">Chế độ duyệt tác phẩm</h2>
+                      <p className="text-xs text-muted">Áp dụng khi xem trang Khám phá</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {([
+                      {
+                        value: "infinite",
+                        label: "Cuộn vô hạn",
+                        desc: "Tự động tải thêm khi cuộn xuống dưới",
+                        Icon: Infinity,
+                        gradient: "from-blue-400 to-violet-400",
+                      },
+                      {
+                        value: "paginate",
+                        label: "Phân trang",
+                        desc: "Hiển thị theo từng trang, có nút Trước/Sau",
+                        Icon: LayoutList,
+                        gradient: "from-pink-400 to-rose-400",
+                      },
+                      {
+                        value: "feed",
+                        label: "Feed toàn màn hình",
+                        desc: "Mỗi tác phẩm chiếm 1 màn hình, cuộn từng bài như Reels",
+                        Icon: Clapperboard,
+                        gradient: "from-emerald-400 to-teal-400",
+                      },
+                    ] as const).map(({ value, label, desc, Icon, gradient }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => handleScrollModeChange(value)}
+                        className={`relative flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all ${
+                          scrollMode === value
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/40 hover:bg-surface-soft"
+                        }`}
+                      >
+                        <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shrink-0`}>
+                          <Icon className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-foreground">{label}</p>
+                          <p className="text-xs text-muted mt-0.5">{desc}</p>
+                        </div>
+                        {scrollMode === value && (
+                          <span className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="h-3 w-3 text-white" />
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="mt-4 text-xs text-muted bg-surface-soft rounded-lg px-3 py-2">
+                    💡 Thay đổi lưu tự động. Nếu đang mở sẵn trang Khám phá, chế độ mới áp dụng ngay lập tức.
+                  </p>
+                </div>
               </div>
             )}
           </div>

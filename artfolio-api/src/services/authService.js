@@ -14,7 +14,7 @@ const generateAccessToken = (user) => {
   return jwt.sign(
     { _id: user._id, email: user.email, role: user.role },
     env.JWT_SECRET,
-    { expiresIn: '1h' }
+    { expiresIn: env.JWT_ACCESS_EXPIRATION || '7d' }
   )
 }
 
@@ -22,7 +22,7 @@ const generateRefreshToken = (user) => {
   return jwt.sign(
     { _id: user._id },
     env.JWT_REFRESH_SECRET,
-    { expiresIn: '14d' }
+    { expiresIn: env.JWT_REFRESH_EXPIRATION || '30d' }
   )
 }
 

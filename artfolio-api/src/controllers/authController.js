@@ -120,11 +120,12 @@ const login = async (req, res, next) => {
   try {
     const result = await authService.login(req.body)
 
+    const isProduction = process.env.NODE_ENV === 'production'
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 14 * 24 * 60 * 60 * 1000
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000  // 30 ngày khớp với JWT_REFRESH_EXPIRATION
     })
 
     res.status(200).json({
@@ -146,11 +147,12 @@ const googleLogin = async (req, res, next) => {
     const result = await authService.loginWithGoogle(idToken)
 
     // Đặt refreshToken vào cookie httpOnly giống login thường
+    const isProduction = process.env.NODE_ENV === 'production'
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 14 * 24 * 60 * 60 * 1000
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000  // 30 ngày khớp với JWT_REFRESH_EXPIRATION
     })
 
     res.status(200).json({
@@ -164,10 +166,11 @@ const googleLogin = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
   try {
+    const isProduction = process.env.NODE_ENV === 'production'
     res.clearCookie('refreshToken', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax'
     })
     res.status(200).json({ message: 'Đăng xuất thành công!' })
   } catch (error) {
@@ -190,11 +193,12 @@ const verifySignupOTP = async (req, res, next) => {
     const { email, otp } = req.body
     const result = await authService.verifySignupOTP(email, otp)
 
+    const isProduction = process.env.NODE_ENV === 'production'
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 14 * 24 * 60 * 60 * 1000
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000  // 30 ngày khớp với JWT_REFRESH_EXPIRATION
     })
 
     res.status(200).json({

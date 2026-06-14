@@ -1,14 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, Heart } from "lucide-react";
+import { Eye, Heart, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import PortfolioModalShell from "./PortfolioModalShell";
+import PortfolioFeed from "./PortfolioFeed";
 import PortfolioDetailClient from "../portfolio/[id]/PortfolioDetailClient";
 import type { PortfolioCategory, PortfolioSummary } from "../types/api";
 import CustomSelect from "./CustomSelect";
 import ColorPickerFilter from "./ColorPickerFilter";
+import { normalizePortfolio, type RawPortfolio } from "../data/portfolios";
+import { getApiUrl } from "../utils/apiConfig";
 
 type PortfolioGridProps = {
   portfolios: PortfolioSummary[];
@@ -24,6 +27,8 @@ const categoryLabels: Record<PortfolioCategory | "all", string> = {
   "3d": "3D",
   other: "Other",
 };
+
+const PAGE_SIZE = 12;
 
 function normalize(value: string) {
   return value.trim().toLowerCase();
@@ -71,7 +76,7 @@ function PortfolioCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.4, delay: index * 0.05 }}
+      transition={{ duration: 0.4, delay: Math.min(index * 0.04, 0.3) }}
       className="masonry-item"
     >
       <button
@@ -81,9 +86,7 @@ function PortfolioCard({
         aria-label={`Xem tác phẩm ${portfolio.title}`}
       >
         <article className="relative flex flex-col overflow-hidden rounded-xl border border-border bg-surface transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/20">
-          <div
-            className={`relative w-full overflow-hidden bg-surface-soft ${randomAspect}`}
-          >
+          <div className={`relative w-full overflow-hidden bg-surface-soft ${randomAspect}`}>
             <Image
               src={portfolio.images?.[0] || "/next.svg"}
               alt={portfolio.title}
@@ -96,8 +99,7 @@ function PortfolioCard({
 
             <div className="absolute inset-x-0 bottom-0 flex translate-y-4 items-end justify-between p-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
               <div className="flex items-center gap-2">
-                {portfolio.user?.avatar &&
-                  portfolio.user.avatar !== "default-avatar.png" ? (
+                {portfolio.user?.avatar && portfolio.user.avatar !== "default-avatar.png" ? (
                   <img
                     src={portfolio.user.avatar}
                     alt={authorName}
@@ -108,7 +110,6 @@ function PortfolioCard({
                     {authorInitial}
                   </span>
                 )}
-
                 <span className="text-sm font-semibold text-white drop-shadow-md">
                   {authorName}
                 </span>
@@ -136,7 +137,6 @@ function PortfolioCard({
                   </span>
                 ))}
               </div>
-
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1.5 font-medium transition-colors group-hover:text-danger">
                   <Heart className="h-4 w-4" /> {portfolio.likesCount || 0}
@@ -151,78 +151,142 @@ function PortfolioCard({
 }
 
 export default function PortfolioGrid({
-  portfolios,
+  portfolios: initialPortfolios,
   isLoading = false,
   errorMessage,
 }: PortfolioGridProps) {
+  const [allPortfolios, setAllPortfolios] = useState<PortfolioSummary[]>(initialPortfolios);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [scrollMode, setScrollMode] = useState<"infinite" | "paginate" | "feed">(() => {
+    if (typeof window === "undefined") return "infinite";
+    return (localStorage.getItem("artfolio-scroll-mode") as "infinite" | "paginate" | "feed") || "infinite";
+  });
+  const [paginatePage, setPaginatePage] = useState(1);
+  const [totalServerPages, setTotalServerPages] = useState(1);
+  const [paginatePortfolios, setPaginatePortfolios] = useState<PortfolioSummary[]>(initialPortfolios);
+  const [isFetchingPage, setIsFetchingPage] = useState(false);
+  const loaderRef = useRef<HTMLDivElement | null>(null);
+
   const [likeOverrides, setLikeOverrides] = useState<Record<string, number>>({});
-
-  const displayPortfolios = useMemo(() => {
-    return portfolios.map((portfolio) => {
-      const portfolioId = getPortfolioId(portfolio);
-      const likesCount = likeOverrides[portfolioId];
-
-      if (typeof likesCount !== "number") {
-        return portfolio;
-      }
-
-      return {
-        ...portfolio,
-        likesCount,
-      };
-    });
-  }, [portfolios, likeOverrides]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<PortfolioCategory | "all">("all");
   const [tag, setTag] = useState("all");
-
-  useEffect(() => {
-    function handlePortfolioLikeChanged(event: Event) {
-      const customEvent = event as CustomEvent<{
-        portfolioId?: string;
-        likesCount?: number;
-      }>;
-
-      const portfolioId = customEvent.detail?.portfolioId;
-      const likesCount = customEvent.detail?.likesCount;
-
-      if (!portfolioId || typeof likesCount !== "number") return;
-
-      setLikeOverrides((current) => ({
-        ...current,
-        [portfolioId]: likesCount,
-      }));
-    }
-
-    window.addEventListener(
-      "artfolio:portfolio-like-changed",
-      handlePortfolioLikeChanged,
-    );
-
-    return () => {
-      window.removeEventListener(
-        "artfolio:portfolio-like-changed",
-        handlePortfolioLikeChanged,
-      );
-    };
-  }, []);
   const [selectedColor, setSelectedColor] = useState<string | "all">("all");
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
 
-  const handleOpenPortfolio = (portfolioId: string) => {
-    setSelectedPortfolioId(portfolioId);
-  };
+  // Fetch next page
+  const fetchMore = useCallback(async () => {
+    if (isFetchingMore || !hasMore) return;
+    setIsFetchingMore(true);
+    try {
+      const nextPage = page + 1;
+      const res = await fetch(getApiUrl(`portfolios?page=${nextPage}&limit=${PAGE_SIZE}`));
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      const rawData: RawPortfolio[] = Array.isArray(json.data) ? json.data : [];
+      const normalized = rawData.map(normalizePortfolio);
+      if (normalized.length === 0 || nextPage >= (json.totalPages ?? 1)) {
+        setHasMore(false);
+      }
+      setAllPortfolios((prev) => {
+        const ids = new Set(prev.map((p) => p._id));
+        return [...prev, ...normalized.filter((p) => !ids.has(p._id))];
+      });
+      setPage(nextPage);
+    } catch {
+      setHasMore(false);
+    } finally {
+      setIsFetchingMore(false);
+    }
+  }, [isFetchingMore, hasMore, page]);
 
-  const handleClosePortfolio = () => {
-    setSelectedPortfolioId(null);
-  };
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const el = loaderRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) fetchMore();
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [fetchMore]);
+
+
+  // Listen for scroll mode changes — hoạt động cả cùng tab lẫn khác tab
+  useEffect(() => {
+    // Cùng tab: dùng CustomEvent
+    function handleModeChange(e: Event) {
+      const evt = e as CustomEvent<{ mode: "infinite" | "paginate" | "feed" }>;
+      setScrollMode(evt.detail.mode);
+      setPaginatePage(1);
+    }
+
+    // Khác tab / trang khác: dùng storage event
+    function handleStorageChange(e: StorageEvent) {
+      if (e.key === "artfolio-scroll-mode" && e.newValue) {
+        const mode = e.newValue as "infinite" | "paginate" | "feed";
+        setScrollMode(mode);
+        setPaginatePage(1);
+      }
+    }
+
+    window.addEventListener("artfolio:scroll-mode-changed", handleModeChange);
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("artfolio:scroll-mode-changed", handleModeChange);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  const fetchPage = useCallback(async (pageNum: number) => {
+    setIsFetchingPage(true);
+    try {
+      const res = await fetch(getApiUrl(`portfolios?page=${pageNum}&limit=${PAGE_SIZE}`));
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      const rawData: RawPortfolio[] = Array.isArray(json.data) ? json.data : [];
+      setPaginatePortfolios(rawData.map(normalizePortfolio));
+      setTotalServerPages(json.totalPages ?? 1);
+      setPaginatePage(pageNum);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      // ignore
+    } finally {
+      setIsFetchingPage(false);
+    }
+  }, []);
+
+  // Like overrides
+  useEffect(() => {
+    function handlePortfolioLikeChanged(event: Event) {
+      const customEvent = event as CustomEvent<{ portfolioId?: string; likesCount?: number }>;
+      const portfolioId = customEvent.detail?.portfolioId;
+      const likesCount = customEvent.detail?.likesCount;
+      if (!portfolioId || typeof likesCount !== "number") return;
+      setLikeOverrides((current) => ({ ...current, [portfolioId]: likesCount }));
+    }
+    window.addEventListener("artfolio:portfolio-like-changed", handlePortfolioLikeChanged);
+    return () => window.removeEventListener("artfolio:portfolio-like-changed", handlePortfolioLikeChanged);
+  }, []);
+
+  const sourcePortfolios = scrollMode === "paginate" ? paginatePortfolios : allPortfolios;
+
+  const displayPortfolios = useMemo(() =>
+    sourcePortfolios.map((portfolio) => {
+      const likesCount = likeOverrides[portfolio._id];
+      return typeof likesCount === "number" ? { ...portfolio, likesCount } : portfolio;
+    }),
+    [sourcePortfolios, likeOverrides]
+  );
 
   const tags = useMemo(
-    () =>
-      Array.from(
-        new Set(displayPortfolios.flatMap((portfolio) => portfolio.tags || [])),
-      ).sort(),
-    [displayPortfolios],
+    () => Array.from(new Set(displayPortfolios.flatMap((p) => p.tags || []))).sort(),
+    [displayPortfolios]
   );
 
   const colors = useMemo(() => {
@@ -232,38 +296,50 @@ export default function PortfolioGrid({
 
   const filtered = useMemo(() => {
     const q = normalize(query);
-
     return displayPortfolios.filter((portfolio) => {
       const matchesQuery =
         !q ||
         normalize(portfolio.title).includes(q) ||
         normalize(portfolio.user?.name || "").includes(q) ||
         Boolean(portfolio.tags && portfolio.tags.some((item) => normalize(item).includes(q)));
-
       const matchesCategory = category === "all" || portfolio.category === category;
       const matchesTag = tag === "all" || Boolean(portfolio.tags && portfolio.tags.includes(tag));
-      const matchesColor = selectedColor === "all" || Boolean(portfolio.colors && portfolio.colors.map(c => c.toLowerCase()).includes(selectedColor));
-
+      const matchesColor =
+        selectedColor === "all" ||
+        Boolean(portfolio.colors && portfolio.colors.map((c) => c.toLowerCase()).includes(selectedColor));
       return matchesQuery && matchesCategory && matchesTag && matchesColor;
     });
   }, [category, displayPortfolios, query, tag, selectedColor]);
 
+  const isFiltering = query || category !== "all" || tag !== "all" || selectedColor !== "all";
+
   const categoryOptions = Object.entries(categoryLabels).map(([value, label]) => ({ value, label }));
-  const tagOptions = [{ value: "all", label: "Tất cả Tags" }, ...tags.map(t => ({ value: t, label: `#${t}` }))];
+  const tagOptions = [{ value: "all", label: "Tất cả Tags" }, ...tags.map((t) => ({ value: t, label: `#${t}` }))];
+
+  // Feed mode — hiển thị từng bài full màn hình kiểu Reels/TikTok
+  if (scrollMode === "feed") {
+    return (
+      <PortfolioFeed
+        portfolios={allPortfolios}
+        isLoading={isLoading}
+        errorMessage={errorMessage}
+      />
+    );
+  }
 
   return (
     <>
       <div className="grid gap-8">
+        {/* Filter bar */}
         <div className="glass sticky top-4 z-10 flex flex-col gap-4 rounded-2xl p-4 shadow-lg sm:flex-row sm:items-center sm:justify-between">
           <div className="w-full flex-1 sm:max-w-xs">
             <input
               className="w-full rounded-xl border border-border/50 bg-surface/50 px-4 py-2.5 text-sm text-foreground placeholder-muted outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Tìm kiếm tác phẩm, tác giả..."
             />
           </div>
-
           <div className="flex flex-wrap gap-3">
             <CustomSelect
               value={category}
@@ -271,14 +347,12 @@ export default function PortfolioGrid({
               options={categoryOptions}
               minWidth="140px"
             />
-
             <CustomSelect
               value={tag}
               onChange={setTag}
               options={tagOptions}
               minWidth="160px"
             />
-
             <ColorPickerFilter
               colors={colors}
               selectedColor={selectedColor}
@@ -312,12 +386,9 @@ export default function PortfolioGrid({
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface-soft text-muted">
               <Eye className="h-8 w-8" />
             </div>
-
             <h2 className="text-xl font-bold">Không tìm thấy tác phẩm</h2>
-
             <p className="mt-2 max-w-sm text-sm text-muted">
-              Thử thay đổi từ khóa hoặc xóa bớt bộ lọc để khám phá thêm nhiều
-              portfolio tuyệt vời khác.
+              Thử thay đổi từ khóa hoặc xóa bớt bộ lọc để khám phá thêm nhiều portfolio tuyệt vời khác.
             </p>
           </motion.div>
         ) : (
@@ -328,16 +399,78 @@ export default function PortfolioGrid({
                   key={portfolio._id}
                   portfolio={portfolio}
                   index={index}
-                  onOpen={handleOpenPortfolio}
+                  onOpen={setSelectedPortfolioId}
                 />
               ))}
             </AnimatePresence>
           </motion.div>
         )}
+
+        {/* Infinite scroll loader — chỉ hiện khi mode infinite */}
+        {scrollMode === "infinite" && !isFiltering && (
+          <div ref={loaderRef} className="flex items-center justify-center py-8">
+            {isFetchingMore && (
+              <div className="flex items-center gap-2 text-sm text-muted">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                Đang tải thêm...
+              </div>
+            )}
+            {!isFetchingMore && !hasMore && allPortfolios.length > PAGE_SIZE && (
+              <p className="text-sm text-muted">Đã hiển thị tất cả tác phẩm ✨</p>
+            )}
+          </div>
+        )}
+
+        {/* Pagination — chỉ hiện khi mode paginate */}
+        {scrollMode === "paginate" && !isFiltering && totalServerPages > 1 && (
+          <div className="flex items-center justify-center gap-3 py-8">
+            <button
+              type="button"
+              disabled={paginatePage <= 1 || isFetchingPage}
+              onClick={() => fetchPage(paginatePage - 1)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border text-sm font-semibold text-muted hover:text-foreground hover:bg-surface-soft disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft className="h-4 w-4" /> Trước
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(totalServerPages, 7) }, (_, i) => {
+                const p = i + 1;
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => fetchPage(p)}
+                    disabled={isFetchingPage}
+                    className={`h-9 w-9 rounded-lg text-sm font-bold transition-all ${
+                      paginatePage === p
+                        ? "bg-gradient-to-br from-blue-400 to-pink-400 text-white shadow-md"
+                        : "border border-border text-muted hover:bg-surface-soft hover:text-foreground"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+              {totalServerPages > 7 && <span className="text-muted px-1">...</span>}
+            </div>
+
+            <button
+              type="button"
+              disabled={paginatePage >= totalServerPages || isFetchingPage}
+              onClick={() => fetchPage(paginatePage + 1)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border text-sm font-semibold text-muted hover:text-foreground hover:bg-surface-soft disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              Sau <ChevronRight className="h-4 w-4" />
+            </button>
+
+            {isFetchingPage && <Loader2 className="h-4 w-4 animate-spin text-primary ml-2" />}
+          </div>
+        )}
       </div>
 
       {selectedPortfolioId && (
-        <PortfolioModalShell onClose={handleClosePortfolio}>
+        <PortfolioModalShell onClose={() => setSelectedPortfolioId(null)}>
           <PortfolioDetailClient
             key={selectedPortfolioId}
             portfolioId={selectedPortfolioId}
