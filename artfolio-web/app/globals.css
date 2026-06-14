@@ -3,15 +3,17 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f6f7f9;
-  --foreground: #172033;
+  --background: #f5f8fd;
+  --foreground: #1e2a4a;
   --surface: #ffffff;
-  --surface-soft: #eef2f7;
-  --border: #d9e0ea;
-  --muted: #65758b;
-  --primary: #4f46e5;
-  --primary-strong: #4338ca;
+  --surface-soft: #eef3fb;
+  --border: #dbe6f5;
+  --muted: #6b7a98;
+  --primary-base: #3b9eef;
+  --primary-strong-base: #2563eb;
   --accent: #ec4899;
+  --primary: color-mix(in srgb, var(--primary-base) 65%, var(--accent) 35%);
+  --primary-strong: color-mix(in srgb, var(--primary-strong-base) 65%, var(--accent) 35%);
   --success: #10b981;
   --danger: #f43f5e;
   --shadow: 0 18px 50px rgba(23, 32, 51, 0.08);
@@ -31,15 +33,17 @@
 }
 
 .dark {
-  --background: #0f172a;
-  --foreground: #f8fafc;
-  --surface: #1e293b;
-  --surface-soft: #334155;
-  --border: #475569;
-  --muted: #94a3b8;
-  --primary: #818cf8;
-  --primary-strong: #6366f1;
+  --background: #0f1729;
+  --foreground: #f1f5fb;
+  --surface: #1a2540;
+  --surface-soft: #2a3a5c;
+  --border: #3e4f78;
+  --muted: #93a4c7;
+  --primary-base: #5db4ff;
+  --primary-strong-base: #3b9eef;
   --accent: #f472b6;
+  --primary: color-mix(in srgb, var(--primary-base) 65%, var(--accent) 35%);
+  --primary-strong: color-mix(in srgb, var(--primary-strong-base) 65%, var(--accent) 35%);
   --success: #34d399;
   --danger: #fb7185;
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
@@ -119,24 +123,6 @@ img {
     margin-bottom: 1.25rem;
   }
 
-  .feed-container {
-    scroll-behavior: smooth;
-    scrollbar-width: none;
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-    width: 100vw;
-    height: 100dvh;
-  }
-
-  .feed-container::-webkit-scrollbar {
-    display: none;
-  }
-
-  .feed-slide {
-    scroll-snap-stop: always;
-  }
-
   .btn {
     display: inline-flex;
     min-height: 40px;
@@ -162,12 +148,12 @@ img {
   }
 
   .btn-primary {
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary-base) 0%, var(--primary-base) 55%, var(--accent) 100%);
     color: #ffffff;
   }
 
   .btn-primary:not(:disabled):hover {
-    background: var(--primary-strong);
+    background: linear-gradient(135deg, var(--primary-strong-base) 0%, var(--primary-strong-base) 55%, var(--accent) 100%);
   }
 
   .btn-secondary {

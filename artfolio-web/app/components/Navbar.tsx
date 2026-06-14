@@ -134,7 +134,7 @@ export default function Navbar() {
     [
       "rounded-md px-3 py-2 text-sm font-semibold transition",
       isActive(pathname, href, selectedSegment)
-        ? "bg-primary text-white shadow-sm"
+        ? "bg-gradient-to-r from-primary to-accent text-white shadow-sm"
         : "text-muted hover:bg-surface-soft hover:text-foreground",
     ].join(" ");
 
@@ -214,7 +214,7 @@ export default function Navbar() {
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-white">
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-xs font-bold text-white">
                       {currentUser?.name.slice(0, 1).toUpperCase()}
                     </span>
                   )}

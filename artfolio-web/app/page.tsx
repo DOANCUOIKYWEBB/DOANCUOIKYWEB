@@ -1,7 +1,6 @@
 import PortfolioGrid from "./components/PortfolioGrid";
 import { getFeaturedPortfolios } from "./data/portfolios";
 import HomeHeroActions from "./components/HomeHeroActions";
-import JustForYouSection from "./components/JustForYouSection";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +57,6 @@ export default async function Home() {
         </div>
       </section>
 
-      <JustForYouSection />
     </main>
   );
 }
