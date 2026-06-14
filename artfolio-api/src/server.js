@@ -13,6 +13,7 @@ import { mapOrder } from './utils/sorts.js'
 
 // ================= SOCKET + APP INIT =================
 const app = express()
+app.set('trust proxy', 1)
 const httpServer = http.createServer(app)
 
 const allowedOrigins = [
