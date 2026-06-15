@@ -253,11 +253,18 @@ export default function ForYouPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Redirect nếu chưa đăng nhập
-  useEffect(() => {
-    if (isHydrated && !isAuthenticated) {
+useEffect(() => {
+  if (!isHydrated) return;
+  if (isAuthenticated) return;
+
+  const timer = setTimeout(() => {
+    if (!useAuthStore.getState().isAuthenticated) {
       router.replace("/login?next=/for-you");
     }
-  }, [isHydrated, isAuthenticated, router]);
+  }, 300);
+
+  return () => clearTimeout(timer);
+}, [isHydrated, isAuthenticated, router]);
 
   useEffect(() => {
     if (!isHydrated || !isAuthenticated) return;
