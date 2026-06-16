@@ -15,6 +15,7 @@
 - [Công nghệ sử dụng](#công-nghệ-sử-dụng)
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
 - [Cài đặt và chạy dự án](#cài-đặt-và-chạy-dự-án)
+- [Chạy bằng Docker](#chạy-bằng-docker)
 - [Biến môi trường](#biến-môi-trường)
 - [API Endpoints](#api-endpoints)
 - [Tính năng AI](#tính-năng-ai)
@@ -204,6 +205,84 @@ npm run seed
 ```
 
 Truy cập ứng dụng tại: **http://localhost:3000**
+
+---
+
+## Chạy bằng Docker
+
+Dự án đã có sẵn `docker-compose.yml` ở thư mục gốc, khởi chạy đồng thời 3 service: MongoDB local, Backend API và Frontend Web.
+
+### Yêu cầu
+
+- **Docker** >= 20.x
+- **Docker Compose** >= v2
+
+### 1. Chuẩn bị file môi trường cho Backend
+
+Docker Compose đọc biến môi trường của backend từ file `artfolio-api/.env`, nên cần tạo file này trước khi chạy:
+
+```bash
+cd artfolio-api
+cp .env.example .env
+# → Điền đầy đủ giá trị (xem mục Biến môi trường)
+cd ..
+```
+
+> **Lưu ý quan trọng:** Nếu muốn dùng MongoDB chạy sẵn trong Docker (container `artfolio-db`) thay vì MongoDB Atlas, đặt trong `.env`:
+> ```env
+> MONGODB_URI=mongodb://artfolio-db:27017/
+> DATABASE_NAME=creative-portfolio
+> ```
+
+Biến môi trường của Frontend (`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SOCKET_URL`) đã được khai báo sẵn trực tiếp trong `docker-compose.yml`, không cần tạo `.env.local` riêng.
+
+### 2. Build và chạy toàn bộ hệ thống
+
+Tại thư mục gốc `DOANCUOIKYWEB-main/`:
+
+```bash
+docker compose up --build
+```
+
+Chạy ở chế độ nền (detached):
+
+```bash
+docker compose up --build -d
+```
+
+Lệnh này sẽ khởi tạo 3 container:
+
+| Service | Container | Port | Mô tả |
+|---|---|---|---|
+| `artfolio-db` | artfolio-db | 27017 | MongoDB local |
+| `artfolio-api` | artfolio-api | 5000 | Backend Express API |
+| `artfolio-web` | artfolio-web | 3000 | Frontend Next.js |
+
+Truy cập ứng dụng tại: **http://localhost:3000**
+
+### 3. Các lệnh thường dùng
+
+```bash
+# Xem log realtime của tất cả service
+docker compose logs -f
+
+# Xem log riêng một service
+docker compose logs -f artfolio-api
+
+# Dừng toàn bộ container
+docker compose down
+
+# Dừng và xóa luôn volume MongoDB (xóa toàn bộ dữ liệu local)
+docker compose down -v
+
+# Build lại sau khi thay đổi Dockerfile hoặc package.json
+docker compose up --build
+
+# Truy cập shell trong container backend
+docker compose exec artfolio-api sh
+```
+
+> **Ghi chú:** `docker-compose.yml` mount volume mã nguồn (`./artfolio-api:/app`, `./artfolio-web:/app`) nên khi sửa code, container sẽ tự reload (hot-reload) mà không cần build lại — chỉ cần build lại khi thay đổi `Dockerfile` hoặc `package.json`.
 
 ---
 
