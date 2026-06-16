@@ -331,7 +331,7 @@ export default function PortfolioGrid({
     <>
       <div className="grid gap-8">
         {/* Filter bar */}
-        <div className="glass sticky top-4 z-10 flex flex-col gap-4 rounded-2xl p-4 shadow-lg sm:flex-row sm:items-center sm:justify-between">
+        <div className="glass flex flex-col gap-4 rounded-2xl p-4 shadow-lg sm:flex-row sm:items-center sm:justify-between">
           <div className="w-full flex-1 sm:max-w-xs">
             <input
               className="w-full rounded-xl border border-border/50 bg-surface/50 px-4 py-2.5 text-sm text-foreground placeholder-muted outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
