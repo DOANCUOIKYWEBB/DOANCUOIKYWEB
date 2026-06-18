@@ -114,8 +114,12 @@ function notifyPortfolioLikeChanged(portfolioId: string, likesCount: number) {
   );
 }
 
-function shareToFacebook(url: string) {
-  const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+function shareToFacebook(url: string, title?: string, imageUrl?: string) {
+  const params = new URLSearchParams({ u: url });
+  if (title) params.set("quote", title);
+  if (imageUrl) params.set("picture", imageUrl);
+
+  const shareUrl = `https://www.facebook.com/sharer/sharer.php?${params.toString()}`;
   const width = 600;
   const height = 520;
   const left = window.screenX + (window.outerWidth - width) / 2;
@@ -485,7 +489,9 @@ export default function PortfolioDetailClient({
 
   function handleShareFacebook() {
     if (typeof window === "undefined") return;
-    shareToFacebook(window.location.href);
+    const title = portfolio?.title;
+    const imageUrl = portfolio?.images?.[0];
+    shareToFacebook(window.location.href, title, imageUrl);
   }
 
   async function handleToggleLike() {
