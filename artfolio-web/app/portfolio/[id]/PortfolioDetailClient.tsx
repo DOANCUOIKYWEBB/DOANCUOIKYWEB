@@ -16,6 +16,7 @@ import {
   Edit3,
   Loader2,
   Save,
+  Share2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
@@ -110,6 +111,20 @@ function notifyPortfolioLikeChanged(portfolioId: string, likesCount: number) {
         likesCount,
       },
     }),
+  );
+}
+
+function shareToFacebook(url: string) {
+  const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+  const width = 600;
+  const height = 520;
+  const left = window.screenX + (window.outerWidth - width) / 2;
+  const top = window.screenY + (window.outerHeight - height) / 2;
+
+  window.open(
+    shareUrl,
+    "facebook-share-dialog",
+    `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
   );
 }
 
@@ -467,6 +482,12 @@ export default function PortfolioDetailClient({
       setIsUpdatingPortfolio(false);
     }
   }
+
+  function handleShareFacebook() {
+    if (typeof window === "undefined") return;
+    shareToFacebook(window.location.href);
+  }
+
   async function handleToggleLike() {
     setNotice("");
 
@@ -961,6 +982,15 @@ export default function PortfolioDetailClient({
               <Eye className="h-4 w-4" />
               {portfolio.views?.toLocaleString("vi-VN") || 0}
             </span>
+            <button
+              type="button"
+              onClick={handleShareFacebook}
+              title="Chia sẻ lên Facebook"
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-surface-soft px-3 text-sm font-bold text-muted transition hover:border-[#1877F2]/40 hover:bg-[#1877F2]/10 hover:text-[#1877F2]"
+            >
+              <Share2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Chia sẻ</span>
+            </button>
             <button
               type="button"
               onClick={handleToggleLike}
